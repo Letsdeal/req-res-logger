@@ -1,0 +1,22 @@
+{
+  "name": "req-res-logger",
+  "version": "0.0.1",
+  "description": "Koa middleware used to log requests/responses",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest"
+  },
+  "keywords": [
+    "logger"
+  ],
+  "author": "Let's deal",
+  "license": "ISC",
+  "dependencies": {
+    "winston": "^2.3.1"
+  },
+  "devDependencies": {
+    "jest": "^20.0.4",
+    "koa": "^2.3.0",
+    "supertest": "^3.0.0"
+  }
+}
