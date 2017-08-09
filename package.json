@@ -2,9 +2,10 @@
   "name": "req-res-logger",
   "version": "0.0.1",
   "description": "Koa middleware used to log requests/responses",
-  "main": "index.js",
+  "main": "dist/main.js",
   "scripts": {
-    "test": "jest"
+    "test": "jest",
+    "build": "webpack"
   },
   "keywords": [
     "logger"
@@ -12,12 +13,13 @@
   "author": "Let's deal",
   "license": "ISC",
   "dependencies": {
-    "logger": "git+ssh://git@github.com/Letsdeal/logger.git",
+    "logger": "git://github.com/Letsdeal/logger.git",
     "winston": "^2.3.1"
   },
   "devDependencies": {
     "jest": "^20.0.4",
     "koa": "^2.3.0",
-    "supertest": "^3.0.0"
+    "supertest": "^3.0.0",
+    "webpack": "^3.5.2"
   }
 }
