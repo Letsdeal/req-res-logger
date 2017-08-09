@@ -1,5 +1,4 @@
-const winston = require('winston');
-const logger = createLogger();
+const logger = require('logger');
 
 
 module.exports = async (ctx, next) => {
@@ -30,63 +29,4 @@ module.exports = async (ctx, next) => {
       body: ctx.response.body,
     });
   }
-};
-
-//////////////////////////////////////////////////////////////////////
-
-function createLogger() {
-  const consoleTransport = new (winston.transports.Console)({
-    timestamp,
-    formatter
-  });
-
-  const logger = new (winston.Logger)({
-    transports: [ consoleTransport ]
-  });
-
-  return logger;
-};
-
-function timestamp() {
-  return Date.now();
-};
-
-function formatter(options) {
-  const { timestamp, level: severity, message, meta } = options;
-  const logTimestamp = timestamp();
-
-  const seconds = Math.floor(logTimestamp / 1000);
-  const milli = new Date(logTimestamp).getMilliseconds();
-  const nanos = 0;
-
-  const channel = 'not-defined';
-
-  if (!message) {
-    message = '';
-  }
-
-  let log = {
-    message,
-    severity,
-    channel,
-    timestamp: { seconds, milli, nanos },
-  };
-
-  if (isPojo(meta)) {
-    Object.assign(log, meta);
-  }
-
-  log = JSON.stringify(log);
-  log = sanitizeLog(log);
-
-  return log;
-};
-
-function isPojo(obj) {
-  return Object.prototype.toString.call(obj) === '[object Object]';
-};
-
-function sanitizeLog(log) {
-  // TODO: sanitize policy
-  return log;
 };
