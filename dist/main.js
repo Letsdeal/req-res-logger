@@ -70,21 +70,35 @@ module.exports =
 
 const logger = __webpack_require__(1);
 
-
 module.exports = async (ctx, next) => {
-  const requestId = +new Date();
   const channel = 'request-response-logger';
   const logRequests = ctx.config ? ctx.config.logRequests : true;
   const logResponses = ctx.config ? ctx.config.logResponses : true;
 
   if (logRequests) {
+    host = ctx.request.host.split(":");
+
     logger.info(`Request: ${ctx.request.method} ${ctx.request.url}`, {
-      id: requestId,
       channel,
-      method: ctx.request.method,
-      url: ctx.request.href,
-      headers: ctx.request.headers,
-      ip: ctx.request.ip,
+      context: {
+        request: {
+          method: ctx.request.method,
+          requestTarget: ctx.request.url,
+          protocolVersion: null,
+          uri: {
+            scheme: ctx.request.protocol,
+            authority: null,
+            userInfo: null,
+            host: host[0],
+            port: host.length == 2 ? host[1] : null,
+            path: ctx.request.path,
+            query: ctx.request.querystring,
+            fragment: null
+          },
+          headers: ctx.request.header,
+          body: null
+        }
+      }
     });
   }
 
@@ -92,11 +106,16 @@ module.exports = async (ctx, next) => {
 
   if (logResponses) {
     logger.info(`Response: ${ctx.request.method} ${ctx.request.url}`, {
-      requestId,
       channel,
-      status: ctx.response.status,
-      headers: ctx.response.headers,
-      body: ctx.response.body,
+      context: {
+        response: {
+          statusCode: ctx.response.status,
+          reasonPhrase: ctx.response.message,
+          protocolVersion: null,
+          headers: ctx.response.header,
+          body: ctx.response.body
+        }
+      }
     });
   }
 };
@@ -2627,13 +2646,10 @@ exception.getTrace = function (err) {
 
 const winston = __webpack_require__(6);
 
-
 module.exports = createLogger();
-
 
 function createLogger() {
   const consoleTransport = new (winston.transports.Console)({
-    timestamp,
     formatter
   });
 
@@ -2644,40 +2660,27 @@ function createLogger() {
   return logger;
 };
 
-function timestamp() {
-  return Date.now();
-};
-
 function formatter(options) {
-  let { timestamp, level, message, meta } = options;
+  let { meta, level: level_name, message } = options;
 
   if (!message) {
     message = '';
   }
 
-  let log = {
-    message,
-    level,
-    timestamp: new Date()
-  };
-
-  if (isPojo(meta)) {
-    Object.assign(log, meta);
+  if (!meta) {
+    meta = {}
   }
 
-  log = JSON.stringify(log);
-  log = sanitizeLog(log);
+  // https://github.com/Seldaek/monolog/blob/master/doc/message-structure.md
+  let record = {
+    message,
+    level: winston.levels[level_name],
+    level_name
+  }
 
-  return log;
-};
+  Object.assign(record, meta);
 
-function isPojo(obj) {
-  return Object.prototype.toString.call(obj) === '[object Object]';
-};
-
-function sanitizeLog(log) {
-  // TODO: sanitize policy
-  return log;
+  return JSON.stringify(record);
 };
 
 
