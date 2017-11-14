@@ -2671,11 +2671,18 @@ function formatter(options) {
     meta = {}
   }
 
+  date = new Date();
+
   // https://github.com/Seldaek/monolog/blob/master/doc/message-structure.md
   let record = {
     message,
     level: winston.levels[level_name],
-    level_name
+    level_name,
+    datetime: {
+      date: date.getUTCFullYear() + "-" + date.getUTCMonth() + "-" + date.getUTCDate() + " " + date.getUTCHours() + ":" + date.getUTCMinutes() + ":" + date.getUTCSeconds() + "." + date.getUTCMilliseconds(),
+      timezone_type: 3,
+      timezone: "UTC"
+    }
   }
 
   Object.assign(record, meta);
