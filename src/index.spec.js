@@ -46,7 +46,6 @@ describe('req-res-logger', () => {
           expect(typeof responseLog).toBe('string');
           expect(responseLogObj.message).toBe(`Response: GET ${path}`);
           expect(responseLogObj.channel).toBe('request-response-logger');
-          expect(responseLogObj.body).toBe('ok');
         } catch (e) {
           reject(e);
         }
