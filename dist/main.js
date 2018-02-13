@@ -112,8 +112,7 @@ module.exports = async (ctx, next) => {
           statusCode: ctx.response.status,
           reasonPhrase: ctx.response.message,
           protocolVersion: null,
-          headers: ctx.response.header,
-          body: ctx.response.body
+          headers: ctx.response.header
         }
       }
     });
