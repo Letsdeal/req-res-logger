@@ -2645,10 +2645,13 @@ exception.getTrace = function (err) {
 
 const winston = __webpack_require__(6);
 
+
 module.exports = createLogger();
+
 
 function createLogger() {
   const consoleTransport = new (winston.transports.Console)({
+    timestamp,
     formatter
   });
 
@@ -2659,34 +2662,48 @@ function createLogger() {
   return logger;
 };
 
+function timestamp() {
+  return Date.now();
+};
+
 function formatter(options) {
-  let { meta, level: level_name, message } = options;
+  let { timestamp, level: severity, message, meta } = options;
+  let logTimestamp = timestamp();
+
+  let seconds = Math.floor(logTimestamp / 1000);
+  let milli = new Date(logTimestamp).getMilliseconds();
+  let nanos = 0;
+
+  let channel = 'not-defined';
 
   if (!message) {
     message = '';
   }
 
-  if (!meta) {
-    meta = {}
-  }
-
-  date = new Date();
-
-  // https://github.com/Seldaek/monolog/blob/master/doc/message-structure.md
-  let record = {
+  let log = {
     message,
-    level: winston.levels[level_name],
-    level_name,
-    datetime: {
-      date: date.getUTCFullYear() + "-" + date.getUTCMonth() + "-" + date.getUTCDate() + " " + date.getUTCHours() + ":" + date.getUTCMinutes() + ":" + date.getUTCSeconds() + "." + date.getUTCMilliseconds(),
-      timezone_type: 3,
-      timezone: "UTC"
-    }
+    severity,
+    channel,
+    timestamp: { seconds, milli, nanos },
+  };
+
+  if (isPojo(meta)) {
+    Object.assign(log, meta);
   }
 
-  Object.assign(record, meta);
+  log = JSON.stringify(log);
+  log = sanitizeLog(log);
 
-  return JSON.stringify(record);
+  return log;
+};
+
+function isPojo(obj) {
+  return Object.prototype.toString.call(obj) === '[object Object]';
+};
+
+function sanitizeLog(log) {
+  // TODO: sanitize policy
+  return log;
 };
 
 
@@ -2694,7 +2711,7 @@ function formatter(options) {
 /* 13 */
 /***/ (function(module, exports) {
 
-module.exports = {"_args":[["winston@2.3.1","/Users/mstrzele/github.com/Letsdeal/logger"]],"_from":"winston@2.3.1","_id":"winston@2.3.1","_inBundle":false,"_integrity":"sha1-C0hCDZeMAYBM8CMLZIhhWYIloRk=","_location":"/winston","_phantomChildren":{},"_requested":{"type":"version","registry":true,"raw":"winston@2.3.1","name":"winston","escapedName":"winston","rawSpec":"2.3.1","saveSpec":null,"fetchSpec":"2.3.1"},"_requiredBy":["/"],"_resolved":"https://registry.npmjs.org/winston/-/winston-2.3.1.tgz","_spec":"2.3.1","_where":"/Users/mstrzele/github.com/Letsdeal/logger","author":{"name":"Charlie Robbins","email":"charlie.robbins@gmail.com"},"bugs":{"url":"https://github.com/winstonjs/winston/issues"},"dependencies":{"async":"~1.0.0","colors":"1.0.x","cycle":"1.0.x","eyes":"0.1.x","isstream":"0.1.x","stack-trace":"0.0.x"},"description":"A multi-transport async logging library for Node.js","devDependencies":{"cross-spawn-async":"^2.0.0","hock":"1.x.x","std-mocks":"~1.0.0","vows":"0.7.x"},"engines":{"node":">= 0.10.0"},"homepage":"https://github.com/winstonjs/winston#readme","keywords":["winston","logging","sysadmin","tools"],"license":"MIT","main":"./lib/winston","maintainers":[{"name":"Jarrett Cruger","email":"jcrugzz@gmail.com"},{"name":"Alberto Pose","email":"albertopose@gmail.com"}],"name":"winston","repository":{"type":"git","url":"git+https://github.com/winstonjs/winston.git"},"scripts":{"test":"vows --spec --isolate"},"version":"2.3.1"}
+module.exports = {"_from":"winston","_id":"winston@2.3.1","_inBundle":false,"_integrity":"sha1-C0hCDZeMAYBM8CMLZIhhWYIloRk=","_location":"/winston","_phantomChildren":{},"_requested":{"type":"tag","registry":true,"raw":"winston","name":"winston","escapedName":"winston","rawSpec":"","saveSpec":null,"fetchSpec":"latest"},"_requiredBy":["#USER","/"],"_resolved":"https://registry.npmjs.org/winston/-/winston-2.3.1.tgz","_shasum":"0b48420d978c01804cf0230b648861598225a119","_spec":"winston","_where":"/Users/remigiuszambroziak/Documents/letsdeal/npm-packages/logger","author":{"name":"Charlie Robbins","email":"charlie.robbins@gmail.com"},"bugs":{"url":"https://github.com/winstonjs/winston/issues"},"bundleDependencies":false,"dependencies":{"async":"~1.0.0","colors":"1.0.x","cycle":"1.0.x","eyes":"0.1.x","isstream":"0.1.x","stack-trace":"0.0.x"},"deprecated":false,"description":"A multi-transport async logging library for Node.js","devDependencies":{"cross-spawn-async":"^2.0.0","hock":"1.x.x","std-mocks":"~1.0.0","vows":"0.7.x"},"engines":{"node":">= 0.10.0"},"homepage":"https://github.com/winstonjs/winston#readme","keywords":["winston","logging","sysadmin","tools"],"license":"MIT","main":"./lib/winston","maintainers":[{"name":"Jarrett Cruger","email":"jcrugzz@gmail.com"},{"name":"Alberto Pose","email":"albertopose@gmail.com"}],"name":"winston","repository":{"type":"git","url":"git+https://github.com/winstonjs/winston.git"},"scripts":{"test":"vows --spec --isolate"},"version":"2.3.1"}
 
 /***/ }),
 /* 14 */
