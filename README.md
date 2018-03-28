@@ -1,4 +1,9 @@
 # req-res-logger
 
-Koa middleware used to log requests and responses used in [web](https://github.com/Letsdeal/web) 
-and [web-landing](https://github.com/Letsdeal/web-landing).
+Koa middleware used to log requests/responses across web projects at Let's Deal.
+
+## build
+`npm run build`
+
+## test
+`npm test`
