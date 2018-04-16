@@ -2,13 +2,21 @@ const logger = require('logger');
 
 module.exports = async (ctx, next) => {
   const channel = 'request-response-logger';
-  const logRequests = ctx.config ? ctx.config.logRequests : true;
-  const logResponses = ctx.config ? ctx.config.logResponses : true;
+  const defaultConfig = {logRequests: true, logResponses: true, ignoredPaths: [], ignoredIfOkPaths: []};
+  const config = ctx.config && ctx.config.logger ? ctx.config.logger : defaultConfig;
+  const isIgnored = isIgnoredPath(ctx.request.path, config.ignoredPaths);
+  const isSuccessfulIgnored = isIgnoredPath(ctx.request.path, config.ignoredIfOkPaths);
+  let postponedLog = null;
 
-  if (logRequests) {
-    host = ctx.request.host.split(":");
+  if (isIgnored) {
+    await next();
+    return;
+  }
 
-    logger.info(`Request: ${ctx.request.method} ${ctx.request.url}`, {
+  if (config.logRequests) {
+    const host = ctx.request.host.split(':');
+    const logLabel = `Request: ${ctx.request.method} ${ctx.request.url}`;
+    const logBody = {
       channel,
       context: {
         request: {
@@ -20,7 +28,7 @@ module.exports = async (ctx, next) => {
             authority: null,
             userInfo: null,
             host: host[0],
-            port: host.length == 2 ? host[1] : null,
+            port: host.length === 2 ? host[1] : null,
             path: ctx.request.path,
             query: ctx.request.querystring,
             fragment: null
@@ -29,12 +37,24 @@ module.exports = async (ctx, next) => {
           body: null
         }
       }
-    });
+    };
+
+    if (isSuccessfulIgnored) {
+      postponedLog = {logLabel, logBody};
+    } else {
+      logger.info(logLabel, logBody);
+    }
   }
 
   await next();
 
-  if (logResponses) {
+  const ignoreResponse = isSuccessfulIgnored && isResponseOk(ctx.response.status);
+  if (config.logResponses && !ignoreResponse) {
+    if (postponedLog !== null) {
+      logger.info(postponedLog.logLabel, postponedLog.logBody);
+      postponedLog = null;
+    }
+
     logger.info(`Response: ${ctx.request.method} ${ctx.request.url}`, {
       channel,
       context: {
@@ -48,3 +68,15 @@ module.exports = async (ctx, next) => {
     });
   }
 };
+
+function isIgnoredPath(path, paths) {
+  if (undefined === paths) return false;
+  for (let i = 0; i < paths.length; i++) {
+    if (path.match(paths[i]) !== null) return true;
+  }
+  return false;
+}
+
+function isResponseOk(status) {
+  return status >= 200 && status <= 299;
+}
