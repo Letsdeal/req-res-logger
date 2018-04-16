@@ -72,13 +72,21 @@ const logger = __webpack_require__(1);
 
 module.exports = async (ctx, next) => {
   const channel = 'request-response-logger';
-  const logRequests = ctx.config ? ctx.config.logRequests : true;
-  const logResponses = ctx.config ? ctx.config.logResponses : true;
+  const defaultConfig = {logRequests: true, logResponses: true, ignoredPaths: [], ignoredIfOkPaths: []};
+  const config = ctx.config && ctx.config.logger ? ctx.config.logger : defaultConfig;
+  const isIgnored = isIgnoredPath(ctx.request.path, config.ignoredPaths);
+  const isSuccessfulIgnored = isIgnoredPath(ctx.request.path, config.ignoredIfOkPaths);
+  let postponedLog = null;
 
-  if (logRequests) {
-    host = ctx.request.host.split(":");
+  if (isIgnored) {
+    await next();
+    return;
+  }
 
-    logger.info(`Request: ${ctx.request.method} ${ctx.request.url}`, {
+  if (config.logRequests) {
+    const host = ctx.request.host.split(':');
+    const logLabel = `Request: ${ctx.request.method} ${ctx.request.url}`;
+    const logBody = {
       channel,
       context: {
         request: {
@@ -90,7 +98,7 @@ module.exports = async (ctx, next) => {
             authority: null,
             userInfo: null,
             host: host[0],
-            port: host.length == 2 ? host[1] : null,
+            port: host.length === 2 ? host[1] : null,
             path: ctx.request.path,
             query: ctx.request.querystring,
             fragment: null
@@ -99,12 +107,24 @@ module.exports = async (ctx, next) => {
           body: null
         }
       }
-    });
+    };
+
+    if (isSuccessfulIgnored) {
+      postponedLog = {logLabel, logBody};
+    } else {
+      logger.info(logLabel, logBody);
+    }
   }
 
   await next();
 
-  if (logResponses) {
+  const ignoreResponse = isSuccessfulIgnored && isResponseOk(ctx.response.status);
+  if (config.logResponses && !ignoreResponse) {
+    if (postponedLog !== null) {
+      logger.info(postponedLog.logLabel, postponedLog.logBody);
+      postponedLog = null;
+    }
+
     logger.info(`Response: ${ctx.request.method} ${ctx.request.url}`, {
       channel,
       context: {
@@ -118,6 +138,18 @@ module.exports = async (ctx, next) => {
     });
   }
 };
+
+function isIgnoredPath(path, paths) {
+  if (undefined === paths) return false;
+  for (let i = 0; i < paths.length; i++) {
+    if (path.match(paths[i]) !== null) return true;
+  }
+  return false;
+}
+
+function isResponseOk(status) {
+  return status >= 200 && status <= 299;
+}
 
 
 /***/ }),
@@ -279,10 +311,15 @@ exports.longestElement = function (xs) {
 // i.e. JSON objects that are either literals or objects (no Arrays, etc)
 //
 exports.clone = function (obj) {
+  //
+  // We only need to clone reference types (Object)
+  //
+  var copy = {};
+
   if (obj instanceof Error) {
     // With potential custom Error objects, this might not be exactly correct,
     // but probably close-enough for purposes of this lib.
-    var copy = { message: obj.message };
+    copy = { message: obj.message };
     Object.getOwnPropertyNames(obj).forEach(function (key) {
       copy[key] = obj[key];
     });
@@ -295,15 +332,6 @@ exports.clone = function (obj) {
   else if (obj instanceof Date) {
     return new Date(obj.getTime());
   }
-
-  return clone(cycle.decycle(obj));
-};
-
-function clone(obj) {
-  //
-  // We only need to clone reference types (Object)
-  //
-  var copy = Array.isArray(obj) ? [] : {};
 
   for (var i in obj) {
     if (Array.isArray(obj[i])) {
@@ -321,7 +349,7 @@ function clone(obj) {
   }
 
   return copy;
-}
+};
 
 //
 // ### function log (options)
@@ -346,7 +374,7 @@ exports.log = function (options) {
       timestamp   = options.timestamp ? timestampFn() : null,
       showLevel   = options.showLevel === undefined ? true : options.showLevel,
       meta        = options.meta !== null && options.meta !== undefined && !(options.meta instanceof Error)
-        ? exports.clone(options.meta)
+        ? exports.clone(cycle.decycle(options.meta))
         : options.meta || null,
       output;
 
@@ -420,7 +448,7 @@ exports.log = function (options) {
   // Remark: this should really be a call to `util.format`.
   //
   if (typeof options.formatter == 'function') {
-    options.meta = meta || options.meta;
+    options.meta = meta;
     return String(options.formatter(exports.clone(options)));
   }
 
@@ -453,7 +481,7 @@ exports.log = function (options) {
         output += ' ' + '\n' + util.inspect(meta, false, options.depth || null, options.colorize);
       } else if (
         options.humanReadableUnhandledException
-          && Object.keys(meta).length >= 5
+          && Object.keys(meta).length === 5
           && meta.hasOwnProperty('date')
           && meta.hasOwnProperty('process')
           && meta.hasOwnProperty('os')
@@ -614,7 +642,7 @@ exports.tailFile = function(options, callback) {
 
     (function read() {
       if (stream.destroyed) {
-        fs.close(fd, nop);
+        fs.close(fd);
         return;
       }
 
@@ -699,8 +727,6 @@ exports.stringArrayToSet = function (strArray, errMsg) {
     return set;
   }, Object.create(null));
 };
-
-function nop () {}
 
 
 /***/ }),
@@ -2651,13 +2677,10 @@ exception.getTrace = function (err) {
 
 const winston = __webpack_require__(6);
 
-
 module.exports = createLogger();
-
 
 function createLogger() {
   const consoleTransport = new (winston.transports.Console)({
-    timestamp,
     formatter
   });
 
@@ -2668,48 +2691,34 @@ function createLogger() {
   return logger;
 };
 
-function timestamp() {
-  return Date.now();
-};
-
 function formatter(options) {
-  let { timestamp, level: severity, message, meta } = options;
-  let logTimestamp = timestamp();
-
-  let seconds = Math.floor(logTimestamp / 1000);
-  let milli = new Date(logTimestamp).getMilliseconds();
-  let nanos = 0;
-
-  let channel = 'not-defined';
+  let { meta, level: level_name, message } = options;
 
   if (!message) {
     message = '';
   }
 
-  let log = {
-    message,
-    severity,
-    channel,
-    timestamp: { seconds, milli, nanos },
-  };
-
-  if (isPojo(meta)) {
-    Object.assign(log, meta);
+  if (!meta) {
+    meta = {}
   }
 
-  log = JSON.stringify(log);
-  log = sanitizeLog(log);
+  date = new Date();
 
-  return log;
-};
+  // https://github.com/Seldaek/monolog/blob/master/doc/message-structure.md
+  let record = {
+    message,
+    level: winston.levels[level_name],
+    level_name,
+    datetime: {
+      date: date.getUTCFullYear() + "-" + date.getUTCMonth() + "-" + date.getUTCDate() + " " + date.getUTCHours() + ":" + date.getUTCMinutes() + ":" + date.getUTCSeconds() + "." + date.getUTCMilliseconds(),
+      timezone_type: 3,
+      timezone: "UTC"
+    }
+  }
 
-function isPojo(obj) {
-  return Object.prototype.toString.call(obj) === '[object Object]';
-};
+  Object.assign(record, meta);
 
-function sanitizeLog(log) {
-  // TODO: sanitize policy
-  return log;
+  return JSON.stringify(record);
 };
 
 
@@ -2717,7 +2726,7 @@ function sanitizeLog(log) {
 /* 13 */
 /***/ (function(module, exports) {
 
-module.exports = {"_from":"winston","_id":"winston@2.4.1","_inBundle":false,"_integrity":"sha512-k/+Dkzd39ZdyJHYkuaYmf4ff+7j+sCIy73UCOWHYA67/WXU+FF/Y6PF28j+Vy7qNRPHWO+dR+/+zkoQWPimPqg==","_location":"/winston","_phantomChildren":{},"_requested":{"type":"tag","registry":true,"raw":"winston","name":"winston","escapedName":"winston","rawSpec":"","saveSpec":null,"fetchSpec":"latest"},"_requiredBy":["#USER","/"],"_resolved":"https://registry.npmjs.org/winston/-/winston-2.4.1.tgz","_shasum":"a3a9265105564263c6785b4583b8c8aca26fded6","_spec":"winston","_where":"/Users/remigiuszambroziak/Documents/letsdeal/logger","author":{"name":"Charlie Robbins","email":"charlie.robbins@gmail.com"},"bugs":{"url":"https://github.com/winstonjs/winston/issues"},"bundleDependencies":false,"dependencies":{"async":"~1.0.0","colors":"1.0.x","cycle":"1.0.x","eyes":"0.1.x","isstream":"0.1.x","stack-trace":"0.0.x"},"deprecated":false,"description":"A multi-transport async logging library for Node.js","devDependencies":{"cross-spawn-async":"^2.0.0","hock":"1.x.x","std-mocks":"~1.0.0","vows":"0.7.x"},"engines":{"node":">= 0.10.0"},"homepage":"https://github.com/winstonjs/winston#readme","keywords":["winston","logging","sysadmin","tools"],"license":"MIT","main":"./lib/winston","maintainers":[{"name":"Jarrett Cruger","email":"jcrugzz@gmail.com"},{"name":"Alberto Pose","email":"albertopose@gmail.com"}],"name":"winston","repository":{"type":"git","url":"git+https://github.com/winstonjs/winston.git"},"scripts":{"test":"vows --spec --isolate"},"version":"2.4.1"}
+module.exports = {"_args":[["winston@2.3.1","/Users/mstrzele/github.com/Letsdeal/logger"]],"_from":"winston@2.3.1","_id":"winston@2.3.1","_inBundle":false,"_integrity":"sha1-C0hCDZeMAYBM8CMLZIhhWYIloRk=","_location":"/winston","_phantomChildren":{},"_requested":{"type":"version","registry":true,"raw":"winston@2.3.1","name":"winston","escapedName":"winston","rawSpec":"2.3.1","saveSpec":null,"fetchSpec":"2.3.1"},"_requiredBy":["/"],"_resolved":"https://registry.npmjs.org/winston/-/winston-2.3.1.tgz","_spec":"2.3.1","_where":"/Users/mstrzele/github.com/Letsdeal/logger","author":{"name":"Charlie Robbins","email":"charlie.robbins@gmail.com"},"bugs":{"url":"https://github.com/winstonjs/winston/issues"},"dependencies":{"async":"~1.0.0","colors":"1.0.x","cycle":"1.0.x","eyes":"0.1.x","isstream":"0.1.x","stack-trace":"0.0.x"},"description":"A multi-transport async logging library for Node.js","devDependencies":{"cross-spawn-async":"^2.0.0","hock":"1.x.x","std-mocks":"~1.0.0","vows":"0.7.x"},"engines":{"node":">= 0.10.0"},"homepage":"https://github.com/winstonjs/winston#readme","keywords":["winston","logging","sysadmin","tools"],"license":"MIT","main":"./lib/winston","maintainers":[{"name":"Jarrett Cruger","email":"jcrugzz@gmail.com"},{"name":"Alberto Pose","email":"albertopose@gmail.com"}],"name":"winston","repository":{"type":"git","url":"git+https://github.com/winstonjs/winston.git"},"scripts":{"test":"vows --spec --isolate"},"version":"2.3.1"}
 
 /***/ }),
 /* 14 */
@@ -3914,8 +3923,7 @@ File.prototype.query = function (options, callback) {
 
     var time = new Date(log.timestamp);
     if ((options.from && time < options.from)
-        || (options.until && time > options.until)
-        || (options.level && options.level !== log.level)) {
+        || (options.until && time > options.until)) {
       return;
     }
 
@@ -4127,7 +4135,7 @@ File.prototype._createStream = function () {
 
         inp.pipe(gzip).pipe(out);
 
-        fs.unlink(String(self._archive), function () {});
+        fs.unlink(String(self._archive));
         self._archive = '';
       }
     }
@@ -4274,7 +4282,7 @@ File.prototype._lazyDrain = function () {
     this._draining = true;
 
     this._stream.once('drain', function () {
-      self._draining = false;
+      this._draining = false;
       self.emit('logged');
     });
   }
@@ -4885,7 +4893,7 @@ Container.prototype.get = Container.prototype.add = function (id, options) {
     }
 
     Object.keys(options).forEach(function (key) {
-      if (key === 'transports' || key === 'filters' || key === 'rewriters') {
+      if (key === 'transports') {
         return;
       }
 

@@ -38,7 +38,7 @@ describe('req-res-logger', () => {
           expect(typeof requestLog).toBe('string');
           expect(requestLogObj.message).toBe(`Request: GET ${path}`);
           expect(requestLogObj.channel).toBe('request-response-logger');
-          expect(requestLogObj.headers['user-agent']).toContain('node-superagent/');
+          expect(requestLogObj.context.request.headers['user-agent']).toContain('node-superagent/');
 
           const responseLog = spy.mock.calls[1][0];
           const responseLogObj = JSON.parse(responseLog);
@@ -68,8 +68,10 @@ describe('req-res-logger', () => {
     const path = '/nibylandia';
 
     app.context.config = {
-      logRequests: false,
-      logResponses: false
+      logger: {
+        logRequests: false,
+        logResponses: false
+      }
     };
 
     await request
