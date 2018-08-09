@@ -22,7 +22,6 @@ module.exports = async (ctx, next) => {
         request: {
           method: ctx.request.method,
           requestTarget: ctx.request.url,
-          protocolVersion: null,
           uri: {
             scheme: ctx.request.protocol,
             authority: null,
@@ -61,7 +60,6 @@ module.exports = async (ctx, next) => {
         response: {
           statusCode: ctx.response.status,
           reasonPhrase: ctx.response.message,
-          protocolVersion: null,
           headers: ctx.response.header
         }
       }
