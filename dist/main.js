@@ -88,23 +88,21 @@ module.exports = async (ctx, next) => {
     const logLabel = `Request: ${ctx.request.method} ${ctx.request.url}`;
     const logBody = {
       channel,
-      context: {
-        request: {
-          method: ctx.request.method,
-          requestTarget: ctx.request.url,
-          uri: {
-            scheme: ctx.request.protocol,
-            authority: null,
-            userInfo: null,
-            host: host[0],
-            port: host.length === 2 ? host[1] : null,
-            path: ctx.request.path,
-            query: ctx.request.querystring,
-            fragment: null
-          },
-          headers: ctx.request.header,
-          body: null
-        }
+      request: {
+        method: ctx.request.method,
+        requestTarget: ctx.request.url,
+        uri: {
+          scheme: ctx.request.protocol,
+          authority: null,
+          userInfo: null,
+          host: host[0],
+          port: host.length === 2 ? host[1] : null,
+          path: ctx.request.path,
+          query: ctx.request.querystring,
+          fragment: null
+        },
+        headers: ctx.request.header,
+        body: null
       }
     };
 
@@ -126,12 +124,10 @@ module.exports = async (ctx, next) => {
 
     logger.info(`Response: ${ctx.request.method} ${ctx.request.url}`, {
       channel,
-      context: {
-        response: {
-          statusCode: ctx.response.status,
-          reasonPhrase: ctx.response.message,
-          headers: ctx.response.header
-        }
+      response: {
+        statusCode: ctx.response.status,
+        reasonPhrase: ctx.response.message,
+        headers: ctx.response.header
       }
     });
   }
