@@ -72,8 +72,15 @@ const logger = __webpack_require__(1);
 
 module.exports = async (ctx, next) => {
   const channel = 'request-response-logger';
-  const defaultConfig = {logRequests: true, logResponses: true, ignoredPaths: [], ignoredIfOkPaths: []};
+  const defaultConfig = {
+    headersFilter: '',
+    logRequests: true,
+    logResponses: true,
+    ignoredPaths: [],
+    ignoredIfOkPaths: []
+  };
   const config = ctx.config && ctx.config.logger ? ctx.config.logger : defaultConfig;
+  const headersFilter = config.headersFilter ? new RegExp(config.headersFilter) : null;
   const isIgnored = isIgnoredPath(ctx.request.path, config.ignoredPaths);
   const isSuccessfulIgnored = isIgnoredPath(ctx.request.path, config.ignoredIfOkPaths);
   let postponedLog = null;
@@ -93,16 +100,12 @@ module.exports = async (ctx, next) => {
         requestTarget: ctx.request.url,
         uri: {
           scheme: ctx.request.protocol,
-          authority: null,
-          userInfo: null,
           host: host[0],
           port: host.length === 2 ? host[1] : null,
           path: ctx.request.path,
           query: ctx.request.querystring,
-          fragment: null
         },
-        headers: ctx.request.header,
-        body: null
+        headers: filterHeaders(ctx.request.header, headersFilter)
       }
     };
 
@@ -127,7 +130,7 @@ module.exports = async (ctx, next) => {
       response: {
         statusCode: ctx.response.status,
         reasonPhrase: ctx.response.message,
-        headers: ctx.response.header
+        headers: filterHeaders(ctx.response.header, headersFilter)
       }
     });
   }
@@ -143,6 +146,19 @@ function isIgnoredPath(path, paths) {
 
 function isResponseOk(status) {
   return status >= 200 && status <= 299;
+}
+
+function filterHeaders(headers, headersFilter) {
+  if (!headersFilter) {
+    return headers;
+  }
+
+  return Object.keys(headers)
+    .filter(key => !key.match(headersFilter))
+    .reduce((obj, key) => {
+      obj[key] = raw[key];
+      return obj;
+    }, {});
 }
 
 
