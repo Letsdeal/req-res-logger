@@ -1,15 +1,19 @@
-const logger = require('logger');
+const { createLogger, transports } = require('winston');
+
+const defaultLogger = createLogger({
+  transports: [new transports.Console()]
+});
 
 module.exports = async (ctx, next) => {
-  const channel = 'req-res-logger';
   const defaultConfig = {
     headersFilter: '',
     logRequests: true,
     logResponses: true,
     ignoredPaths: [],
-    ignoredIfOkPaths: []
+    ignoredIfOkPaths: [],
+    logger: defaultLogger
   };
-  const config = ctx.config && ctx.config.logger ? ctx.config.logger : defaultConfig;
+  const config = { ...defaultConfig, ...ctx.config.logger };
   const headersFilter = config.headersFilter ? new RegExp(config.headersFilter) : null;
   const isIgnored = isIgnoredPath(ctx.request.path, config.ignoredPaths);
   const isSuccessfulIgnored = isIgnoredPath(ctx.request.path, config.ignoredIfOkPaths);
@@ -25,7 +29,6 @@ module.exports = async (ctx, next) => {
   if (config.logRequests) {
     const logLabel = `Request: ${ctx.request.method} ${ctx.request.url}`;
     const logBody = {
-      channel,
       request: {
         method: ctx.request.method,
         uri: {
@@ -36,13 +39,13 @@ module.exports = async (ctx, next) => {
         },
         headers: filterHeaders(ctx.request.header, headersFilter)
       },
-      requestId: ctx.state.requestId
+      _ctx: ctx
     };
 
     if (isSuccessfulIgnored) {
       postponedLog = {logLabel, logBody};
     } else {
-      logger.info(logLabel, logBody);
+      config.logger.info(logLabel, logBody);
     }
   }
 
@@ -51,12 +54,11 @@ module.exports = async (ctx, next) => {
   const ignoreResponse = isSuccessfulIgnored && isResponseOk(ctx.response.status);
   if (config.logResponses && !ignoreResponse) {
     if (postponedLog !== null) {
-      logger.info(postponedLog.logLabel, postponedLog.logBody);
+      config.logger.info(postponedLog.logLabel, postponedLog.logBody);
       postponedLog = null;
     }
 
-    logger.info(`Response: ${ctx.request.method} ${ctx.request.url}`, {
-      channel,
+    config.logger.info(`Response: ${ctx.request.method} ${ctx.request.url}`, {
       request: {
         method: ctx.request.method,
         uri: {
@@ -71,7 +73,7 @@ module.exports = async (ctx, next) => {
         reasonPhrase: ctx.response.message,
         headers: filterHeaders(ctx.response.header, headersFilter)
       },
-      requestId: ctx.state.requestId
+      _ctx: ctx
     });
   }
 };
