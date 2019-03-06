@@ -1,7 +1,7 @@
 const logger = require('logger');
 
 module.exports = async (ctx, next) => {
-  const channel = 'request-response-logger';
+  const channel = 'req-res-logger';
   const defaultConfig = {
     headersFilter: '',
     logRequests: true,
@@ -20,23 +20,23 @@ module.exports = async (ctx, next) => {
     return;
   }
 
+  const host = ctx.request.host.split(':')[0];
+
   if (config.logRequests) {
-    const host = ctx.request.host.split(':');
     const logLabel = `Request: ${ctx.request.method} ${ctx.request.url}`;
     const logBody = {
       channel,
       request: {
         method: ctx.request.method,
-        requestTarget: ctx.request.url,
         uri: {
           scheme: ctx.request.protocol,
-          host: host[0],
-          port: host.length === 2 ? host[1] : null,
+          host,
           path: ctx.request.path,
           query: ctx.request.querystring,
         },
         headers: filterHeaders(ctx.request.header, headersFilter)
-      }
+      },
+      requestId: ctx.state.requestId
     };
 
     if (isSuccessfulIgnored) {
@@ -57,11 +57,21 @@ module.exports = async (ctx, next) => {
 
     logger.info(`Response: ${ctx.request.method} ${ctx.request.url}`, {
       channel,
+      request: {
+        method: ctx.request.method,
+        uri: {
+          scheme: ctx.request.protocol,
+          host,
+          path: ctx.request.path,
+          query: ctx.request.querystring,
+        }
+      },
       response: {
         statusCode: ctx.response.status,
         reasonPhrase: ctx.response.message,
         headers: filterHeaders(ctx.response.header, headersFilter)
-      }
+      },
+      requestId: ctx.state.requestId
     });
   }
 };
