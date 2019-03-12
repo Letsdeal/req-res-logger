@@ -32,7 +32,6 @@ module.exports = async (ctx, next) => {
       request: {
         method: ctx.request.method,
         uri: {
-          scheme: ctx.request.protocol,
           host,
           path: ctx.request.path,
           query: ctx.request.querystring,
@@ -58,19 +57,20 @@ module.exports = async (ctx, next) => {
       postponedLog = null;
     }
 
-    config.logger.info(`Response: ${ctx.request.method} ${ctx.request.url}`, {
+    const statusCode = ctx.response.status;
+    const method = ctx.request.method;
+
+    config.logger.info(`Response: [${statusCode}] ${method} ${ctx.request.url}`, {
       request: {
-        method: ctx.request.method,
+        method,
         uri: {
-          scheme: ctx.request.protocol,
           host,
           path: ctx.request.path,
           query: ctx.request.querystring,
         }
       },
       response: {
-        statusCode: ctx.response.status,
-        reasonPhrase: ctx.response.message,
+        statusCode,
         headers: filterHeaders(ctx.response.header, headersFilter)
       },
       _ctx: ctx
