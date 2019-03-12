@@ -98,7 +98,7 @@ function filterHeaders(headers, headersFilter) {
   return Object.keys(headers)
     .filter(key => !key.match(headersFilter))
     .reduce((obj, key) => {
-      obj[key] = raw[key];
+      obj[key] = headers[key];
       return obj;
     }, {});
 }

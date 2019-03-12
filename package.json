@@ -1,6 +1,6 @@
 {
   "name": "req-res-logger",
-  "version": "2.5.0",
+  "version": "2.5.1",
   "description": "Koa middleware used to log requests/responses",
   "main": "dist/main.js",
   "scripts": {
