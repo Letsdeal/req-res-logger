@@ -13,7 +13,7 @@
   "author": "Let's deal",
   "license": "ISC",
   "dependencies": {
-    "logger": "git://github.com/Letsdeal/logger.git#v1.1.0",
+    "logger": "git+https://github.com/Letsdeal/logger.git#v1.1.0",
     "winston": "^2.4.4"
   },
   "devDependencies": {
